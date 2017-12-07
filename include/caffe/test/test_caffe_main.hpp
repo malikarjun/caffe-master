@@ -9,6 +9,10 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/nonfree/features2d.hpp> //Thanks to Alessandro
+
 #include "caffe/common.hpp"
 
 using std::cout;

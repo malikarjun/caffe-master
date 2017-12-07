@@ -7,6 +7,10 @@
 #include <iostream>  // NOLINT(readability/streams)
 #include <string>
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/nonfree/features2d.hpp> //Thanks to Alessandro
+
 #include "caffe/caffe.hpp"
 #include "caffe/util/io.hpp"
 #include "caffe/util/upgrade_proto.hpp"

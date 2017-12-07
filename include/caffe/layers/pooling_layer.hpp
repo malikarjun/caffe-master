@@ -3,6 +3,10 @@
 
 #include <vector>
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/nonfree/features2d.hpp> //Thanks to Alessandro
+
 #include "caffe/blob.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -43,6 +47,8 @@ class PoolingLayer : public Layer<Dtype> {
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+  virtual cv::Mat Datum_to_cvmat(const vector<Blob<Dtype>*>& bottom);
+  virtual bool Check_sift_keypoint(int h, int w, vector<cv::KeyPoint> keypoints);
 
   int kernel_h_, kernel_w_;
   int stride_h_, stride_w_;

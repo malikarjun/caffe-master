@@ -1,14 +1,22 @@
 #include <algorithm>
 #include <cfloat>
 #include <vector>
+#include <sstream>
+#include <string>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/nonfree/features2d.hpp> //Thanks to Alessandro
 
 #include "caffe/layers/pooling_layer.hpp"
 #include "caffe/util/math_functions.hpp"
+
 
 namespace caffe {
 
 using std::min;
 using std::max;
+using std::string;
 
 template <typename Dtype>
 void PoolingLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
@@ -122,12 +130,75 @@ void PoolingLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   }
 }
 
+template <typename Dtype>
+cv::Mat PoolingLayer<Dtype>::Datum_to_cvmat(const vector<Blob<Dtype>*>& bottom)
+{
+ const Dtype* bottom_data = bottom[0]->cpu_data();
+ // Convert array of DType to Datum
+ Datum datum;
+ datum.set_width(width_); 
+ datum.set_height(height_); 
+ datum.set_channels(channels_);
+ for(int i = 0; i < height_*width_-1; i++) {
+  datum.mutable_data()->push_back(bottom_data[i]);
+ }
+ int datum_channels = datum.channels();
+ int datum_height = datum.height();
+ int datum_width = datum.width();
+ string strData = datum.data();
+ cv::Mat cv_img;
+ if (strData.size() != 0)
+ {
+  cv_img.create(datum_height, datum_width, CV_8UC(datum_channels));
+  const string& data = datum.data();
+  std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
+
+  for (int h = 0; h < datum_height; ++h) {
+   uchar* ptr = cv_img.ptr<uchar>(h);
+   int img_index = 0;
+   for (int w = 0; w < datum_width; ++w) {
+    for (int c = 0; c < datum_channels; ++c) {
+     int datum_index = (c * datum_height + h) * datum_width + w;
+     ptr[img_index++] = static_cast<uchar>(vec_data[datum_index]);
+    }
+   }
+  }
+ }
+ else
+ {
+  cv_img.create(datum_height, datum_width, CV_32FC(datum_channels));
+  for (int h = 0; h < datum_height; ++h) {
+   float* ptr = cv_img.ptr<float>(h);
+   int img_index = 0;
+   for (int w = 0; w < datum_width; ++w) {
+    for (int c = 0; c < datum_channels; ++c) {
+     ptr[img_index++] = static_cast<float>(datum.float_data(img_index));
+    }
+   }
+  }
+ }
+ return cv_img;
+}
+
+template <typename Dtype>
+bool PoolingLayer<Dtype>::Check_sift_keypoint(int h, int w, vector<cv::KeyPoint> keypoints) {
+  for(int i = 0; i < keypoints.size(); i++)
+  	if(h == (int)keypoints[i].pt.y && w == (int)keypoints[i].pt.x)
+  		return true;
+  return false;
+}
+
 // TODO(Yangqing): Is there a faster way to do pooling in the channel-first
 // case?
 template <typename Dtype>
 void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   const Dtype* bottom_data = bottom[0]->cpu_data();
+  // Convert datum to cv:Mat for finding sift features
+  cv::Mat input = Datum_to_cvmat(bottom);
+  cv::SiftFeatureDetector detector;
+  std::vector<cv::KeyPoint> keypoints;
+  detector.detect(input, keypoints);
   Dtype* top_data = top[0]->mutable_cpu_data();
   const int top_count = top[0]->count();
   // We'll output the mask to top[1] if it's of size >1.
@@ -159,10 +230,14 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
             hstart = max(hstart, 0);
             wstart = max(wstart, 0);
             const int pool_index = ph * pooled_width_ + pw;
+            bool found_sift_keypoint = false;
             for (int h = hstart; h < hend; ++h) {
               for (int w = wstart; w < wend; ++w) {
                 const int index = h * width_ + w;
-                if (bottom_data[index] > top_data[pool_index]) {
+                if(found_sift_keypoint)
+                  continue;
+                found_sift_keypoint = Check_sift_keypoint(h, w, keypoints);
+                if (bottom_data[index] > top_data[pool_index] || found_sift_keypoint) {
                   top_data[pool_index] = bottom_data[index];
                   if (use_top_mask) {
                     top_mask[pool_index] = static_cast<Dtype>(index);
