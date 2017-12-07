@@ -3,6 +3,7 @@
 #include <vector>
 #include <sstream>
 #include <string>
+#include <bits/stdc++.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -17,6 +18,7 @@ namespace caffe {
 using std::min;
 using std::max;
 using std::string;
+using namespace std;
 
 template <typename Dtype>
 void PoolingLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
@@ -199,6 +201,8 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   cv::SiftFeatureDetector detector;
   std::vector<cv::KeyPoint> keypoints;
   detector.detect(input, keypoints);
+  // Vector to record the coordinates as we perform pooling
+  // vector<pair<int,int> > coordinates;
   Dtype* top_data = top[0]->mutable_cpu_data();
   const int top_count = top[0]->count();
   // We'll output the mask to top[1] if it's of size >1.
@@ -234,6 +238,8 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
             for (int h = hstart; h < hend; ++h) {
               for (int w = wstart; w < wend; ++w) {
                 const int index = h * width_ + w;
+                // Populate the coordinates vector to examine the images
+                // coordinates.push_back(make_pair(h,w));
                 if(found_sift_keypoint)
                   continue;
                 found_sift_keypoint = Check_sift_keypoint(h, w, keypoints);
@@ -249,6 +255,13 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
             }
           }
         }
+        // To print the coordinates and keypoints
+	    // cout << "Actual coordinates" << endl;
+	    // for(int i = 0; i < coordinates.size(); i++) 
+	  	 //  cout << coordinates[i].first << ", " << coordinates[i].second << endl;
+	    // cout << "Sift keypoints" << endl;
+	    // for(int i = 0; i < keypoints.size(); i++)
+	  	 //  cout << (int)keypoints[i].pt.y << ", "  << (int)keypoints[i].pt.x << endl;
         // compute offset
         bottom_data += bottom[0]->offset(0, 1);
         top_data += top[0]->offset(0, 1);
